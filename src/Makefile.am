@@ -36,13 +36,14 @@ SUBDIRS = hashkit proto event
 sbin_PROGRAMS = nutcracker
 
 nutcracker_SOURCES =			\
-	ssl_writev.c ssl_writev.h	\
 	nc_core.c nc_core.h		\
 	nc_connection.c nc_connection.h	\
 	nc_client.c nc_client.h		\
 	nc_server.c nc_server.h		\
 	nc_proxy.c nc_proxy.h		\
 	nc_message.c nc_message.h	\
+	ssl_writev.c ssl_writev.h	\
+	nc_ssl.c ssl_ssl.h 			\
 	nc_request.c			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\

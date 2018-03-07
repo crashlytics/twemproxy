@@ -21,11 +21,7 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
-
-// TODO: need all these?
-#include <openssl/bio.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include <nc_ssl.h>
 
 #include <sys/time.h>
 
@@ -471,134 +467,6 @@ server_close(struct context *ctx, struct conn *conn)
     conn_put(conn);
 }
 
-SSL* setup_ssl(int socket_descriptor) {
-    char *cert_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.crt.pem"; // host cert
-    char *key_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.key.pem"; // host private key
-    char *ca_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/intermediate_and_root.crt"; // server_intermediate + root ca cert
-
-    SSL_CTX *ctx;
-    SSL *ssl;
-
-    // init
-    SSL_library_init(); /* load encryption & hash algorithms for SSL */
-    ERR_load_crypto_strings();
-    SSL_load_error_strings(); /* load the error strings for good error reporting */
-
-    ctx = SSL_CTX_new(SSLv23_method()); // TODO: is this the right method?
-
-    if (ctx == NULL) {
-        log_debug(LOG_INFO, "error creating context");
-    }
-
-    SSL_CTX_set_timeout(ctx, 5); // in seconds
-
-    // SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
-
-    int use_cert = SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM);
-    if (use_cert != 1) {
-        log_debug(LOG_INFO, "error loading cert %s", cert_path);
-    }
-
-    int use_private_key = SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM);
-    if (use_private_key != 1) {
-        log_debug(LOG_INFO, "error loading private key: %s", key_path);
-    }
-
-    // TODO: can we specify separate locations for client verification and what is sent to the server (check with Brian on the specifics of this distinction)
-    int use_ca = SSL_CTX_load_verify_locations(ctx, ca_path, NULL);
-    if (use_ca != 1) {
-        log_debug(LOG_INFO, "error loading ca %s", ca_path);
-    }
-
-    if (SSL_CTX_check_private_key(ctx) != 1) {
-        log_debug(LOG_INFO, "something is wrong with SSL_CTX_check_private_key");
-    }
-
-    ssl = SSL_new(ctx);
-
-    if (ssl == NULL) {
-        log_debug(LOG_INFO, "error creating ssl");
-    }
-
-    log_debug(LOG_INFO, "setting fd: %d", socket_descriptor);
-    SSL_set_fd(ssl, socket_descriptor);
-
-// TODO: pls no gotos
-connect_again:;
-
-    int connect_status = SSL_connect(ssl);
-
-    if (connect_status == 1) {
-        log_debug(LOG_INFO, "Successfully completed TLS");
-    }
-    else {
-        int code = SSL_get_error(ssl, connect_status);
-        // log_debug(LOG_INFO, "SSL failed with status: %d code: %d", connect_status, code);
-        // ERR_print_errors_fp(stderr);
-        // log_debug(LOG_INFO, "error: %s", ERR_error_string(ERR_get_error(), NULL));
-//         switch(code) {
-// case SSL_ERROR_NONE: log_debug(LOG_INFO, "error string: SSL_ERROR_NONE"); break;
-// case SSL_ERROR_ZERO_RETURN: log_debug(LOG_INFO, "error string: SSL_ERROR_ZERO_RETURN"); break;
-// case SSL_ERROR_WANT_READ: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_READ"); break;
-// case SSL_ERROR_WANT_WRITE: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_WRITE"); break;
-// case SSL_ERROR_WANT_CONNECT: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_CONNECT"); break;
-// case SSL_ERROR_WANT_ACCEPT: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_ACCEPT"); break;
-// case SSL_ERROR_WANT_X509_LOOKUP: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_X509_LOOKUP"); break;
-// case SSL_ERROR_SYSCALL: log_debug(LOG_INFO, "error string: SSL_ERROR_SYSCALL"); break;
-// case SSL_ERROR_SSL: log_debug(LOG_INFO, "error string: SSL_ERROR_SSL"); break;
-//         }
-
-        if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
-            // log_debug(LOG_INFO, "SSL still negotiating. select()ing.");
-
-
-            // man page suggests using select fwiw
-            fd_set fds;
-            struct timeval tv;
-
-            FD_ZERO(&fds);
-            FD_SET(socket_descriptor, &fds);
-            tv.tv_sec = 2;
-            tv.tv_usec = 0;
-            int select_result = select(socket_descriptor+1, &fds, &fds, NULL, &tv);
-
-            if (select_result > 0) {
-                // log_debug(LOG_INFO, "select() returned, retrying connection.");
-            }
-            else {
-                log_debug(LOG_INFO, "select failed with code: %d", select_result);
-                exit(1);
-                // FIXME what should we do at this point?
-            }
-
-            goto connect_again;
-        }
-
-        if (code == SSL_ERROR_SSL) {
-            long unsigned int ssl_error_code;
-            while ((ssl_error_code = ERR_get_error()) != 0) {
-                log_debug(LOG_INFO, "SSL error: %s", ERR_error_string(ssl_error_code, NULL));
-            }
-        }
-
-    }
-
-    // int write_status = SSL_write(ssl, "*3\r\n$3\r\nSET\r\n$6\r\nFOO_KEY\r\n$8\r\nBAR_VALUE\r\n", 41);
-    // if (write_status > 0) {
-    //     log_debug(LOG_INFO, "successfully wrote over SSL %d bytes!!!!", write_status);
-    // }
-    // else {
-    //     log_debug(LOG_INFO, "ssl write failed with status %d", write_status);
-    // }
-
-
-    log_debug(LOG_INFO, "we ok so far");
-    // cleanup - does it matter?
-    // SSL_CTX_free(ctx);
-
-    return ssl;
-}
-
 rstatus_t
 server_connect(struct context *ctx, struct server *server, struct conn *conn)
 {
@@ -672,7 +540,12 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting);
 
-    conn->ssl = setup_ssl(conn->sd);
+    status = setup_ssl(conn);
+    if (status != NC_OK) {
+        log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+            server->pname.len, server->pname.data);
+        goto error;
+    }
 
     conn->connected = 1;
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
@@ -693,7 +566,13 @@ server_connected(struct context *ctx, struct conn *conn)
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->connecting && !conn->connected);
 
-    conn->ssl = setup_ssl(conn->sd);
+    // TODO: really this should happen before this function is called.
+    // Not sure how to shim it in there yet. Would make error handling easier.
+    rstatus_t status = setup_ssl(conn);
+    if (status != NC_OK) {
+        log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+            server->pname.len, server->pname.data);
+    }
 
     stats_server_incr(ctx, server, server_connections);
 
