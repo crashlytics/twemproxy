@@ -104,6 +104,7 @@ struct event_base;
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <netinet/in.h>
+#include <openssl/ssl.h>
 
 #include <nc_array.h>
 #include <nc_string.h>

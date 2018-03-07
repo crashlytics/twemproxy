@@ -36,6 +36,7 @@ SUBDIRS = hashkit proto event
 sbin_PROGRAMS = nutcracker
 
 nutcracker_SOURCES =			\
+	ssl_writev.c ssl_writev.h	\
 	nc_core.c nc_core.h		\
 	nc_connection.c nc_connection.h	\
 	nc_client.c nc_client.h		\

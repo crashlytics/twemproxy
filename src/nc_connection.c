@@ -23,6 +23,8 @@
 #include <nc_proxy.h>
 #include <proto/nc_proto.h>
 
+#include <ssl_writev.h>
+
 /*
  *                   nc_connection.[ch]
  *                Connection (struct conn)
@@ -132,6 +134,8 @@ _conn_get(void)
     TAILQ_INIT(&conn->omsg_q);
     conn->rmsg = NULL;
     conn->smsg = NULL;
+
+    conn->ssl = NULL;
 
     /*
      * Callbacks {recv, recv_next, recv_done}, {send, send_next, send_done},
@@ -341,7 +345,12 @@ conn_recv(struct conn *conn, void *buf, size_t size)
     ASSERT(conn->recv_ready);
 
     for (;;) {
-        n = nc_read(conn->sd, buf, size);
+        if (conn->ssl != NULL) {
+            n = SSL_read(conn->ssl, buf, size);
+        }
+        else {
+            n = nc_read(conn->sd, buf, size);
+        }
 
         log_debug(LOG_VERB, "recv on sd %d %zd of %zu", conn->sd, n, size);
 
@@ -391,7 +400,12 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     ASSERT(conn->send_ready);
 
     for (;;) {
-        n = nc_writev(conn->sd, sendv->elem, sendv->nelem);
+        if (conn->ssl != NULL) {
+            n = SSL_writev(conn->ssl, sendv->elem, sendv->nelem);
+        }
+        else {
+            n = nc_writev(conn->sd, sendv->elem, sendv->nelem);
+        }
 
         log_debug(LOG_VERB, "sendv on sd %d %zd of %zu in %"PRIu32" buffers",
                   conn->sd, n, nsend, sendv->nelem);
@@ -403,6 +417,9 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
             conn->send_bytes += (size_t)n;
             return n;
         }
+
+
+        // FIXME: add SSL error handling (e.g. for SSL_ERROR_WANT_READ)
 
         if (n == 0) {
             log_warn("sendv on sd %d returned zero", conn->sd);

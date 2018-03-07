@@ -46,6 +46,7 @@ struct conn {
     int                 family;          /* socket address family */
     socklen_t           addrlen;         /* socket length */
     struct sockaddr     *addr;           /* socket address (ref in server or server_pool) */
+    SSL                 *ssl;            /* SSL object */
 
     struct msg_tqh      imsg_q;          /* incoming request Q */
     struct msg_tqh      omsg_q;          /* outstanding request Q */
