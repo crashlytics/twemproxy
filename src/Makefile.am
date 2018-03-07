@@ -8,8 +8,10 @@ AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
 AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
+# https://stackoverflow.com/questions/3368683/how-to-compile-c-file-with-openssl-includes
+AM_CPPFLAGS += -I /usr/include/openssl
 
-AM_CFLAGS = 
+AM_CFLAGS =
 # about -fno-strict-aliasing: https://github.com/twitter/twemproxy/issues/276
 AM_CFLAGS += -fno-strict-aliasing
 AM_CFLAGS += -Wall -Wshadow
@@ -21,7 +23,7 @@ AM_CFLAGS += -Wconversion -Wsign-compare
 AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissing-declarations
 
 AM_LDFLAGS =
-AM_LDFLAGS += -lm -lpthread -rdynamic
+AM_LDFLAGS += -lm -lpthread -rdynamic -lssl -lcrypto
 if OS_SOLARIS
 AM_LDFLAGS += -lnsl -lsocket
 endif
