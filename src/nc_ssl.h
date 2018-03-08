@@ -10,6 +10,9 @@ rstatus_t setup_ssl(struct conn *conn);
 
 // version of `man writev` that uses SSL_write() to write a vector of
 // to data an SSL structure.
+// Matches the return behavior of writev():
+//  - On success, returns the number of bytes written.
+//  - On failure, returns -1 and sets errno.
 ssize_t SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt);
 
 

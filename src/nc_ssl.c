@@ -5,26 +5,26 @@
 #include <openssl/err.h>
 
 static void
-print_ssl_error(int error_code) {
-    log_debug(LOG_INFO, "SSL failed with error code: %d", error_code);
+log_ssl_error_code(int error_code) {
+    log_error("SSL failed with error code: %d", error_code);
     ERR_print_errors_fp(stderr); // TODO: use log_*()
-    log_debug(LOG_INFO, "error: %s", ERR_error_string(ERR_get_error(), NULL));
+    log_error("error: %s", ERR_error_string(ERR_get_error(), NULL));
     switch(error_code) {
-        case SSL_ERROR_NONE: log_debug(LOG_INFO, "error string: SSL_ERROR_NONE"); break;
-        case SSL_ERROR_ZERO_RETURN: log_debug(LOG_INFO, "error string: SSL_ERROR_ZERO_RETURN"); break;
-        case SSL_ERROR_WANT_READ: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_READ"); break;
-        case SSL_ERROR_WANT_WRITE: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_WRITE"); break;
-        case SSL_ERROR_WANT_CONNECT: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_CONNECT"); break;
-        case SSL_ERROR_WANT_ACCEPT: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_ACCEPT"); break;
-        case SSL_ERROR_WANT_X509_LOOKUP: log_debug(LOG_INFO, "error string: SSL_ERROR_WANT_X509_LOOKUP"); break;
-        case SSL_ERROR_SYSCALL: log_debug(LOG_INFO, "error string: SSL_ERROR_SYSCALL"); break;
-        case SSL_ERROR_SSL: log_debug(LOG_INFO, "error string: SSL_ERROR_SSL"); break;
+        case SSL_ERROR_NONE: log_error("error string: SSL_ERROR_NONE"); break;
+        case SSL_ERROR_ZERO_RETURN: log_error("error string: SSL_ERROR_ZERO_RETURN"); break;
+        case SSL_ERROR_WANT_READ: log_error("error string: SSL_ERROR_WANT_READ"); break;
+        case SSL_ERROR_WANT_WRITE: log_error("error string: SSL_ERROR_WANT_WRITE"); break;
+        case SSL_ERROR_WANT_CONNECT: log_error("error string: SSL_ERROR_WANT_CONNECT"); break;
+        case SSL_ERROR_WANT_ACCEPT: log_error("error string: SSL_ERROR_WANT_ACCEPT"); break;
+        case SSL_ERROR_WANT_X509_LOOKUP: log_error("error string: SSL_ERROR_WANT_X509_LOOKUP"); break;
+        case SSL_ERROR_SYSCALL: log_error("error string: SSL_ERROR_SYSCALL"); break;
+        case SSL_ERROR_SSL: log_error("error string: SSL_ERROR_SSL"); break;
     }
 
     if (error_code == SSL_ERROR_SSL) {
         long unsigned int ssl_error_code;
         while ((ssl_error_code = ERR_get_error()) != 0) {
-            log_debug(LOG_INFO, "SSL error: %s", ERR_error_string(ssl_error_code, NULL));
+            log_error("SSL error: %s", ERR_error_string(ssl_error_code, NULL));
         }
     }
 }
@@ -49,7 +49,7 @@ block_until_read_or_write(int socket_descriptor, int timeout_secs) {
 }
 
 static rstatus_t
-do_ssl_connect(SSL *ssl, struct conn *conn) {
+do_ssl_connect(SSL *ssl) {
     int connect_status;
     while ((connect_status = SSL_connect(ssl)) != 1) {
         int code = SSL_get_error(ssl, connect_status);
@@ -57,11 +57,11 @@ do_ssl_connect(SSL *ssl, struct conn *conn) {
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
-            block_until_read_or_write(conn->sd, 2);
+            block_until_read_or_write(SSL_get_fd(ssl), 2);
         }
         else {
-            log_debug(LOG_INFO, "Failing SSL_connect due to unhandled error.");
-            print_ssl_error(code);
+            log_error("Failing SSL_connect due to unhandled error.");
+            log_ssl_error_code(code);
             return NC_ERROR;
         }
     }
@@ -130,7 +130,7 @@ setup_ssl(struct conn *conn) {
     log_debug(LOG_INFO, "setting fd: %d", conn->sd);
     SSL_set_fd(ssl, conn->sd);
 
-    if (do_ssl_connect(ssl, conn) != NC_OK) {
+    if (do_ssl_connect(ssl) != NC_OK) {
         return NC_ERROR;
     }
 
@@ -166,6 +166,30 @@ copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt
     }
 }
 
+// Retry SSL_write if it encounters a SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE error.
+// Fail it if it encounters another error.
+// Returns number of bytes written or -1 on failure.
+static int
+do_ssl_write(SSL *ssl, char * buf, int buflen) {
+    int bytes_written;
+    while ((bytes_written = SSL_write(ssl, buf, buflen)) <= 0) {
+        int code = SSL_get_error(ssl, bytes_written);
+
+        if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
+            // This means that the socket needs to do a read or write first.
+            // Since the socket is nonblocking, we can just wait until it is done, per the man page.
+            block_until_read_or_write(SSL_get_fd(ssl), 2);
+        }
+        else {
+            log_error("Failing SSL_write due to unhandled error.");
+            log_ssl_error_code(code);
+            return -1;
+        }
+    }
+
+    return bytes_written;
+}
+
 ssize_t
 SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
     size_t total_bytes = 0;
@@ -179,6 +203,15 @@ SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
 
     copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
 
-    // FIXME: does this have the same semantics as write? (almost certainly not)
-    return SSL_write(ssl, buf, (int)total_bytes);
+    if (total_bytes == 0) {
+        // Calling SSL_write with 0 bytes to send causes undefined behavior.
+        // Since there's nothing to send, return success.
+        return 0;
+    }
+
+    // Must retry failed writes here since there's no guarantee that the caller of this
+    // function will call it with the same arguments. However, it must since (from the man page):
+    // When an SSL_write() operation has to be repeated because of SSL_ERROR_WANT_READ or
+    // SSL_ERROR_WANT_WRITE, it must be repeated with the same arguments.
+    return do_ssl_write(ssl, buf, (int)total_bytes);
 }

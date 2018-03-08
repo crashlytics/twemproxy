@@ -418,9 +418,6 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
             return n;
         }
 
-
-        // FIXME: add SSL error handling (e.g. for SSL_ERROR_WANT_READ)
-
         if (n == 0) {
             log_warn("sendv on sd %d returned zero", conn->sd);
             conn->send_ready = 0;
