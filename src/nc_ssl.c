@@ -1,5 +1,7 @@
 #include <nc_ssl.h>
 
+#include <sys/uio.h>
+
 #include <openssl/ssl.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
@@ -73,6 +75,7 @@ do_ssl_connect(SSL *ssl, struct conn *conn) {
 rstatus_t
 setup_ssl(struct conn *conn) {
     // TODO get this from conf
+
     char *cert_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.crt.pem"; // host cert
     char *key_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.key.pem"; // host private key
     char *ca_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/intermediate_and_root.crt"; // server_intermediate + root ca cert
@@ -137,4 +140,47 @@ setup_ssl(struct conn *conn) {
 
     conn->ssl = ssl;
     return NC_OK;
+}
+
+static inline size_t
+min(size_t a, size_t b) {
+    if (a > b)
+        return b;
+    return a;
+}
+
+ssize_t
+SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
+    log_debug(LOG_DEBUG, "writev with count: %d", iovcnt);
+
+    size_t total_bytes = 0;
+    for (int i = 0; i < iovcnt; i++) {
+        total_bytes += iov[i].iov_len;
+    }
+
+    log_debug(LOG_DEBUG, "total bytes: %d", total_bytes);
+
+    // FIXME: reconsider using this. it's allocated on the stack so could risk a stackoverflow.
+    // It's not clear if SSL_write() does anything different with buf than write()
+    char *buf = alloca(total_bytes);
+
+    size_t remaining_bytes = total_bytes;
+    size_t to_copy_bytes;
+    char *copy_loc = buf; // tracks where to next copy
+    for (int i = 0; i < iovcnt; i++) {
+        log_debug(LOG_DEBUG, "vec %d size %d", i, iov[i].iov_len);
+        // Guard against buffer overflow.
+        to_copy_bytes = min(iov[i].iov_len, remaining_bytes);
+
+        memcpy(copy_loc, iov[i].iov_base, to_copy_bytes);
+        copy_loc += to_copy_bytes;
+
+        remaining_bytes -= to_copy_bytes;
+        if (remaining_bytes == 0) {
+            break;
+        }
+    }
+
+    // FIXME: does this have the same semantics as write? (almost certainly not)
+    return SSL_write(ssl, buf, (int)total_bytes);
 }

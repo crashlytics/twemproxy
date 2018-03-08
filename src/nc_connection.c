@@ -21,9 +21,9 @@
 #include <nc_server.h>
 #include <nc_client.h>
 #include <nc_proxy.h>
+#include <nc_ssl.h>
 #include <proto/nc_proto.h>
 
-#include <ssl_writev.h>
 
 /*
  *                   nc_connection.[ch]
