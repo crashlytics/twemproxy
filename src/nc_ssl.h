@@ -8,12 +8,18 @@
 rstatus_t setup_ssl(struct conn *conn);
 // teardown_ssl(struct conn *conn); // TODO: would this ever get used?
 
-// version of `man writev` that uses SSL_write() to write a vector of
-// to data an SSL structure.
+// Uses SSL_write() to write a vector of data over SSL with the same
+// semantics as writev().
 // Matches the return behavior of writev():
 //  - On success, returns the number of bytes written.
 //  - On failure, returns -1 and sets errno.
-ssize_t SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt);
+ssize_t nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt);
+
+// Version of SSL_read() with the same semantics as read().
+// Matches the return behavior of writev():
+//  - On success, returns the number of bytes read.
+//  - On failure, returns -1 and sets errno.
+ssize_t nc_ssl_read(SSL *ssl, void *buf, int num);
 
 
 // Copy the contents of iovcnt vectors from iov into buf, in order.

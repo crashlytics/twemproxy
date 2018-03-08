@@ -191,7 +191,7 @@ do_ssl_write(SSL *ssl, char * buf, int buflen) {
 }
 
 ssize_t
-SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
+nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
     size_t total_bytes = 0;
     for (int i = 0; i < iovcnt; i++) {
         total_bytes += iov[i].iov_len;
@@ -214,4 +214,25 @@ SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
     // When an SSL_write() operation has to be repeated because of SSL_ERROR_WANT_READ or
     // SSL_ERROR_WANT_WRITE, it must be repeated with the same arguments.
     return do_ssl_write(ssl, buf, (int)total_bytes);
+}
+
+ssize_t
+nc_ssl_read(SSL *ssl, void *buf, int num) {
+    int bytes_read;
+    while ((bytes_read = SSL_read(ssl, buf, num)) <= 0) {
+        int code = SSL_get_error(ssl, bytes_read);
+
+        if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
+            // This means that the socket needs to do a read or write first.
+            // Since the socket is nonblocking, we can just wait until it is done, per the man page.
+            block_until_read_or_write(SSL_get_fd(ssl), 2);
+        }
+        else {
+            log_error("Failing SSL_read due to unhandled error.");
+            log_ssl_error_code(code);
+            return -1;
+        }
+    }
+
+    return bytes_read;
 }

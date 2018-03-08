@@ -346,7 +346,7 @@ conn_recv(struct conn *conn, void *buf, size_t size)
 
     for (;;) {
         if (conn->ssl != NULL) {
-            n = SSL_read(conn->ssl, buf, size);
+            n = nc_ssl_read(conn->ssl, buf, size);
         }
         else {
             n = nc_read(conn->sd, buf, size);
@@ -401,7 +401,7 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
 
     for (;;) {
         if (conn->ssl != NULL) {
-            n = SSL_writev(conn->ssl, sendv->elem, sendv->nelem);
+            n = nc_ssl_writev(conn->ssl, sendv->elem, sendv->nelem);
         }
         else {
             n = nc_writev(conn->sd, sendv->elem, sendv->nelem);
