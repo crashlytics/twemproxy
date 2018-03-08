@@ -1,6 +1,7 @@
 #include <nc_ssl.h>
 
 #include <openssl/ssl.h>
+#include <openssl/crypto.h>
 #include <openssl/err.h>
 
 static void
@@ -75,6 +76,8 @@ setup_ssl(struct conn *conn) {
     char *cert_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.crt.pem"; // host cert
     char *key_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.key.pem"; // host private key
     char *ca_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/intermediate_and_root.crt"; // server_intermediate + root ca cert
+
+    log_debug(LOG_DEBUG, "Using %s", SSLeay_version(SSLEAY_VERSION));
 
     SSL_CTX *ctx;
     SSL *ssl;
