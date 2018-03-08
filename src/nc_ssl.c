@@ -1,7 +1,5 @@
 #include <nc_ssl.h>
 
-#include <sys/uio.h>
-
 #include <openssl/ssl.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
@@ -149,26 +147,12 @@ min(size_t a, size_t b) {
     return a;
 }
 
-ssize_t
-SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
-    log_debug(LOG_DEBUG, "writev with count: %d", iovcnt);
-
-    size_t total_bytes = 0;
-    for (int i = 0; i < iovcnt; i++) {
-        total_bytes += iov[i].iov_len;
-    }
-
-    log_debug(LOG_DEBUG, "total bytes: %d", total_bytes);
-
-    // FIXME: reconsider using this. it's allocated on the stack so could risk a stackoverflow.
-    // It's not clear if SSL_write() does anything different with buf than write()
-    char *buf = alloca(total_bytes);
-
-    size_t remaining_bytes = total_bytes;
+void
+copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt) {
+    size_t remaining_bytes = buflen;
     size_t to_copy_bytes;
     char *copy_loc = buf; // tracks where to next copy
     for (int i = 0; i < iovcnt; i++) {
-        log_debug(LOG_DEBUG, "vec %d size %d", i, iov[i].iov_len);
         // Guard against buffer overflow.
         to_copy_bytes = min(iov[i].iov_len, remaining_bytes);
 
@@ -180,6 +164,20 @@ SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
             break;
         }
     }
+}
+
+ssize_t
+SSL_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
+    size_t total_bytes = 0;
+    for (int i = 0; i < iovcnt; i++) {
+        total_bytes += iov[i].iov_len;
+    }
+
+    // FIXME: reconsider using this. it's allocated on the stack so could risk a stackoverflow.
+    // It's not clear if SSL_write() does anything different with buf than write()
+    char *buf = alloca(total_bytes);
+
+    copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
 
     // FIXME: does this have the same semantics as write? (almost certainly not)
     return SSL_write(ssl, buf, (int)total_bytes);

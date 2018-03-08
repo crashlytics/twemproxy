@@ -34,6 +34,7 @@
 # Core and executable
 core*
 nutcracker
+nutcracker_test
 
 # extracted yaml
 !/contrib/yaml-0.1.4.tar.gz
