@@ -458,6 +458,14 @@ server_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    if (conn->ssl) {
+        status = nc_teardown_ssl(conn->ssl);
+        if (status != NC_OK) {
+            log_error("failed to teardown ssl s %d", conn->sd);
+        }
+        conn->ssl = NULL;
+    }
+
     status = close(conn->sd);
     if (status < 0) {
         log_error("close s %d failed, ignored: %s", conn->sd, strerror(errno));
@@ -540,7 +548,7 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting);
 
-    status = setup_ssl(conn);
+    status = nc_setup_ssl(conn);
     if (status != NC_OK) {
         log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
             server->pname.len, server->pname.data);
@@ -568,7 +576,7 @@ server_connected(struct context *ctx, struct conn *conn)
 
     // TODO: really this should happen before this function is called.
     // Not sure how to shim it in there yet. Would make error handling easier.
-    rstatus_t status = setup_ssl(conn);
+    rstatus_t status = nc_setup_ssl(conn);
     if (status != NC_OK) {
         log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
             server->pname.len, server->pname.data);

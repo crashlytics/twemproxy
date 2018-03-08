@@ -71,7 +71,7 @@ do_ssl_connect(SSL *ssl) {
 }
 
 rstatus_t
-setup_ssl(struct conn *conn) {
+nc_setup_ssl(struct conn *conn) {
     // TODO get this from conf
 
     char *cert_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.crt.pem"; // host cert
@@ -83,7 +83,7 @@ setup_ssl(struct conn *conn) {
     SSL_CTX *ctx;
     SSL *ssl;
 
-    // init
+    // FIXME: can these 3 functions be called multiple times?
     SSL_library_init(); /* load encryption & hash algorithms for SSL */
     ERR_load_crypto_strings();
     SSL_load_error_strings(); /* load the error strings for good error reporting */
@@ -140,30 +140,32 @@ setup_ssl(struct conn *conn) {
     return NC_OK;
 }
 
-static inline size_t
-min(size_t a, size_t b) {
-    if (a > b)
-        return b;
-    return a;
-}
+rstatus_t
+nc_teardown_ssl(SSL *ssl) {
+    int shutdown_status;
+    while ((shutdown_status = SSL_shutdown(ssl)) <= 0) {
+        if (shutdown_status == 0) {
+            // 0 means shutdown is not yet finished and that the function should be called again.
+            continue;
+        }
 
-void
-copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt) {
-    size_t remaining_bytes = buflen;
-    size_t to_copy_bytes;
-    char *copy_loc = buf; // tracks where to next copy
-    for (int i = 0; i < iovcnt; i++) {
-        // Guard against buffer overflow.
-        to_copy_bytes = min(iov[i].iov_len, remaining_bytes);
+        int code = SSL_get_error(ssl, shutdown_status);
 
-        memcpy(copy_loc, iov[i].iov_base, to_copy_bytes);
-        copy_loc += to_copy_bytes;
-
-        remaining_bytes -= to_copy_bytes;
-        if (remaining_bytes == 0) {
-            break;
+        if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
+            // This means that the socket needs to do a read or write first.
+            // Since the socket is nonblocking, we can just wait until it is done, per the man page.
+            block_until_read_or_write(SSL_get_fd(ssl), 2);
+        }
+        else {
+            log_error("Failing SSL_write due to unhandled error.");
+            log_ssl_error_code(code);
+            return NC_ERROR;
         }
     }
+
+    SSL_free(ssl);
+
+    return NC_OK;
 }
 
 // Retry SSL_write if it encounters a SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE error.
@@ -235,4 +237,30 @@ nc_ssl_read(SSL *ssl, void *buf, int num) {
     }
 
     return bytes_read;
+}
+
+static inline size_t
+min(size_t a, size_t b) {
+    if (a > b)
+        return b;
+    return a;
+}
+
+void
+copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt) {
+    size_t remaining_bytes = buflen;
+    size_t to_copy_bytes;
+    char *copy_loc = buf; // tracks where to next copy
+    for (int i = 0; i < iovcnt; i++) {
+        // Guard against buffer overflow.
+        to_copy_bytes = min(iov[i].iov_len, remaining_bytes);
+
+        memcpy(copy_loc, iov[i].iov_base, to_copy_bytes);
+        copy_loc += to_copy_bytes;
+
+        remaining_bytes -= to_copy_bytes;
+        if (remaining_bytes == 0) {
+            break;
+        }
+    }
 }

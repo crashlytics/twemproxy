@@ -5,8 +5,9 @@
 #include <sys/uio.h>
 
 // Configure SSL for a connection. Updates `conn->ssl` on success.
-rstatus_t setup_ssl(struct conn *conn);
-// teardown_ssl(struct conn *conn); // TODO: would this ever get used?
+rstatus_t nc_setup_ssl(struct conn *conn);
+// Shutdown the SSL connection and free `ssl`.
+rstatus_t nc_teardown_ssl(SSL *ssl);
 
 // Uses SSL_write() to write a vector of data over SSL with the same
 // semantics as writev().
