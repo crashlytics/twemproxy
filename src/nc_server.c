@@ -548,11 +548,14 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
 
     ASSERT(!conn->connecting);
 
-    status = nc_setup_ssl(conn);
-    if (status != NC_OK) {
-        log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
-            server->pname.len, server->pname.data);
-        goto error;
+    struct server_pool *server_pool = server->owner;
+    if (server_pool->require_ssl) {
+        status = nc_setup_ssl(conn, &server_pool->ssl_host_cert, &server_pool->ssl_host_key, &server_pool->ssl_ca_file);
+        if (status != NC_OK) {
+            log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+                server->pname.len, server->pname.data);
+            goto error;
+        }
     }
 
     conn->connected = 1;
@@ -570,16 +573,19 @@ void
 server_connected(struct context *ctx, struct conn *conn)
 {
     struct server *server = conn->owner;
+    struct server_pool *server_pool = server->owner;
 
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->connecting && !conn->connected);
 
     // TODO: really this should happen before this function is called.
     // Not sure how to shim it in there yet. Would make error handling easier.
-    rstatus_t status = nc_setup_ssl(conn);
-    if (status != NC_OK) {
-        log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
-            server->pname.len, server->pname.data);
+    if (server_pool->require_ssl) {
+        rstatus_t status = nc_setup_ssl(conn, &server_pool->ssl_host_cert, &server_pool->ssl_host_key, &server_pool->ssl_ca_file);
+        if (status != NC_OK) {
+            log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+                server->pname.len, server->pname.data);
+        }
     }
 
     stats_server_incr(ctx, server, server_connections);

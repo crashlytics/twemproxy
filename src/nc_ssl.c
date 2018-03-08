@@ -71,12 +71,14 @@ do_ssl_connect(SSL *ssl) {
 }
 
 rstatus_t
-nc_setup_ssl(struct conn *conn) {
-    // TODO get this from conf
+nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *host_key_path, struct string *ca_file_path) {
+    char *cert_path = host_cert_path->data;
+    char *key_path = host_key_path->data;
+    char *ca_path = ca_file_path->data;
 
-    char *cert_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.crt.pem"; // host cert
-    char *key_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/phobos.cam.corp.google.com.key.pem"; // host private key
-    char *ca_path = "/usr/local/google/home/spanaro/crashlytics/twemproxy/keys/intermediate_and_root.crt"; // server_intermediate + root ca cert
+    log_debug(LOG_INFO, "connecting with cert: %s", cert_path);
+    log_debug(LOG_INFO, "connecting with key: %s", key_path);
+    log_debug(LOG_INFO, "connecting with ca file: %s", ca_path);
 
     log_debug(LOG_DEBUG, "Using %s", SSLeay_version(SSLEAY_VERSION));
 

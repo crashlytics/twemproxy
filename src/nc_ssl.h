@@ -5,7 +5,7 @@
 #include <sys/uio.h>
 
 // Configure SSL for a connection. Updates `conn->ssl` on success.
-rstatus_t nc_setup_ssl(struct conn *conn);
+rstatus_t nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *host_key_path, struct string *ca_file_path);
 // Shutdown the SSL connection and free `ssl`.
 rstatus_t nc_teardown_ssl(SSL *ssl);
 

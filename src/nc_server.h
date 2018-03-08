@@ -92,6 +92,11 @@ struct server_pool {
     uint32_t           nc_conn_q;            /* # client connection */
     struct conn_tqh    c_conn_q;             /* client connection q */
 
+    struct string      ssl_host_cert;        /* local host certificate for SSL */
+    struct string      ssl_host_key;         /* local host private key for SSL */
+    struct string      ssl_ca_file;          /* CA file with certificates for SSL */
+    unsigned           require_ssl;          /* require ssl? */
+
     struct array       server;               /* server[] */
     uint32_t           ncontinuum;           /* # continuum points */
     uint32_t           nserver_continuum;    /* # servers - live and dead on continuum (const) */

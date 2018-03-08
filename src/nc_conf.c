@@ -106,6 +106,18 @@ static struct command conf_commands[] = {
       conf_set_num,
       offsetof(struct conf_pool, server_failure_limit) },
 
+    { string("ssl_host_cert"),
+      conf_set_string,
+      offsetof(struct conf_pool, ssl_host_cert) },
+
+    { string("ssl_host_key"),
+      conf_set_string,
+      offsetof(struct conf_pool, ssl_host_key) },
+
+    { string("ssl_ca_file"),
+      conf_set_string,
+      offsetof(struct conf_pool, ssl_ca_file) },
+
     { string("servers"),
       conf_add_server,
       offsetof(struct conf_pool, server) },
@@ -184,6 +196,9 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
     string_init(&cp->listen.pname);
     string_init(&cp->listen.name);
     string_init(&cp->redis_auth);
+    string_init(&cp->ssl_host_cert);
+    string_init(&cp->ssl_host_key);
+    string_init(&cp->ssl_ca_file);
     cp->listen.port = 0;
     memset(&cp->listen.info, 0, sizeof(cp->listen.info));
     cp->listen.valid = 0;
@@ -239,6 +254,18 @@ conf_pool_deinit(struct conf_pool *cp)
         string_deinit(&cp->redis_auth);
     }
 
+    if (cp->ssl_host_cert.len > 0) {
+        string_deinit(&cp->ssl_host_cert);
+    }
+
+    if (cp->ssl_host_key.len > 0) {
+        string_deinit(&cp->ssl_host_key);
+    }
+
+    if (cp->ssl_ca_file.len > 0) {
+        string_deinit(&cp->ssl_ca_file);
+    }
+
     while (array_n(&cp->server) != 0) {
         conf_server_deinit(array_pop(&cp->server));
     }
@@ -266,6 +293,11 @@ conf_pool_each_transform(void *elem, void *data)
     sp->p_conn = NULL;
     sp->nc_conn_q = 0;
     TAILQ_INIT(&sp->c_conn_q);
+
+    sp->ssl_host_cert = cp->ssl_host_cert;
+    sp->ssl_host_key = cp->ssl_host_key;
+    sp->ssl_ca_file = cp->ssl_ca_file;
+    sp->require_ssl = cp->ssl_host_cert.len > 0 && cp->ssl_host_key.len > 0 && cp->ssl_ca_file.len > 0 ? 1 : 0;
 
     array_null(&sp->server);
     sp->ncontinuum = 0;
@@ -1272,6 +1304,13 @@ conf_validate_pool(struct conf *cf, struct conf_pool *cp)
     if (!cp->redis && cp->redis_auth.len > 0) {
         log_error("conf: directive \"redis_auth:\" is only valid for a redis pool");
         return NC_ERROR;
+    }
+
+    if (cp->ssl_host_cert.len > 0 || cp->ssl_host_key.len > 0 || cp->ssl_ca_file.len > 0) {
+        if (cp->ssl_host_cert.len <= 0 || cp->ssl_host_key.len <= 0 || cp->ssl_ca_file.len <= 0) {
+            log_error("conf: must specify all of \"ssl_host_cert\" and \"ssl_host_key\" and \"ssl_ca_file\" if any is supplied");
+            return NC_ERROR;
+        }
     }
 
     status = conf_validate_server(cf, cp);
