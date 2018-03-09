@@ -168,12 +168,13 @@ nc_teardown_ssl(SSL *ssl) {
             block_until_read_or_write(SSL_get_fd(ssl), 2);
         }
         else {
-            log_error("Failing SSL_write due to unhandled error.");
+            log_error("Failing SSL_shutdown due to unhandled error.");
             log_ssl_error_code(code);
             return NC_ERROR;
         }
     }
 
+    SSL_CTX_free(SSL_get_SSL_CTX(ssl));
     SSL_free(ssl);
 
     return NC_OK;
