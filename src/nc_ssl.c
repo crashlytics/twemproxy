@@ -50,7 +50,7 @@ block_until_read_or_write(int socket_descriptor, int timeout_secs) {
     int select_result = select(socket_descriptor+1, &fds, &fds, NULL, &tv);
 
     if (select_result <= 0) {
-        log_debug(LOG_VERB, "select failed with code: %d", select_result);
+        log_debug(LOG_VERB, "select() failed with code: %d", select_result);
         return NC_ERROR;
     }
 
@@ -66,7 +66,10 @@ do_ssl_connect(SSL *ssl) {
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
-            block_until_read_or_write(SSL_get_fd(ssl), 2);
+            if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
+                log_error("Failing SSL_connect due to error waiting for read or write.");
+                return NC_ERROR;
+            }
         }
         else {
             log_error("Failing SSL_connect due to unhandled error.");
@@ -98,29 +101,24 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
     ERR_load_crypto_strings();
     SSL_load_error_strings(); /* load the error strings for good error reporting */
 
-    ctx = SSL_CTX_new(SSLv23_method());
-
-    if (ctx == NULL) {
+    if ((ctx = SSL_CTX_new(SSLv23_method())) == NULL) {
         log_error("Error creating ssl context");
     }
 
     SSL_CTX_set_timeout(ctx, 5); // in seconds
 
-    int use_cert = SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM);
-    if (use_cert != 1) {
+    if (SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM) != 1) {
         log_error("Error loading ssl cert %s", cert_path);
         return NC_ERROR;
     }
 
-    int use_private_key = SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM);
-    if (use_private_key != 1) {
+    if (SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM) != 1) {
         log_error("Error loading ssl private key: %s", key_path);
         return NC_ERROR;
     }
 
     // TODO: can we specify separate locations for client verification and what is sent to the server (check with Brian on the specifics of this distinction)
-    int use_ca = SSL_CTX_load_verify_locations(ctx, ca_path, NULL);
-    if (use_ca != 1) {
+    if (SSL_CTX_load_verify_locations(ctx, ca_path, NULL) != 1) {
         log_error("Error loading ssl ca file: %s", ca_path);
         return NC_ERROR;
     }
@@ -139,7 +137,11 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
         return NC_ERROR;
     }
 
-    SSL_set_fd(ssl, conn->sd);
+    if (SSL_set_fd(ssl, conn->sd) != 1) {
+        log_error("Error setting fd for ssl structure.");
+        log_ssl_error_stack();
+        return NC_ERROR;
+    }
 
     if (do_ssl_connect(ssl) != NC_OK) {
         return NC_ERROR;
@@ -165,7 +167,10 @@ nc_teardown_ssl(SSL *ssl) {
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
-            block_until_read_or_write(SSL_get_fd(ssl), 2);
+            if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
+                log_error("Failing SSL_shutdown due to error waiting for read or write.");
+                return NC_ERROR;
+            }
         }
         else {
             log_error("Failing SSL_shutdown due to unhandled error.");
@@ -192,7 +197,10 @@ do_ssl_write(SSL *ssl, char * buf, int buflen) {
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
-            block_until_read_or_write(SSL_get_fd(ssl), 2);
+            if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
+                log_error("Failing SSL_write due to error waiting for read or write.");
+                return NC_ERROR;
+            }
         }
         else {
             log_error("Failing SSL_write due to unhandled error.");
@@ -239,7 +247,11 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
-            block_until_read_or_write(SSL_get_fd(ssl), 2);
+            if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
+                log_error("Failing SSL_read due to error waiting for read or write.");
+                return NC_ERROR;
+            }
+
         }
         else if (code == SSL_ERROR_ZERO_RETURN) {
             // This is the equivalent of read() returning 0, which happens when the socket is closed.
