@@ -235,6 +235,11 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
             block_until_read_or_write(SSL_get_fd(ssl), 2);
         }
+        else if (code == SSL_ERROR_ZERO_RETURN) {
+            // This is the equivalent of read() returning 0, which happens when the socket is closed.
+            // Return 0 to mimic that behavior.
+            returo 0;
+        }
         else {
             log_error("Failing SSL_read due to unhandled error.");
             log_ssl_error_code(code);
