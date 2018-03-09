@@ -5,6 +5,14 @@
 #include <openssl/err.h>
 
 static void
+log_ssl_error_stack(void) {
+    long unsigned int ssl_error_code;
+    while ((ssl_error_code = ERR_get_error()) != 0) {
+        log_error("SSL error: %s", ERR_error_string(ssl_error_code, NULL));
+    }
+}
+
+static void
 log_ssl_error_code(int error_code) {
     log_error("SSL failed with error code: %d", error_code);
 
@@ -26,10 +34,7 @@ log_ssl_error_code(int error_code) {
     }
 
     if (error_code == SSL_ERROR_SSL) {
-        long unsigned int ssl_error_code;
-        while ((ssl_error_code = ERR_get_error()) != 0) {
-            log_error("SSL error: %s", ERR_error_string(ssl_error_code, NULL));
-        }
+        log_ssl_error_stack();
     }
 }
 
@@ -45,7 +50,7 @@ block_until_read_or_write(int socket_descriptor, int timeout_secs) {
     int select_result = select(socket_descriptor+1, &fds, &fds, NULL, &tv);
 
     if (select_result <= 0) {
-        log_debug(LOG_INFO, "select failed with code: %d", select_result);
+        log_debug(LOG_VERB, "select failed with code: %d", select_result);
         return NC_ERROR;
     }
 
@@ -70,7 +75,7 @@ do_ssl_connect(SSL *ssl) {
         }
     }
 
-    log_debug(LOG_INFO, "Successfuly completed SSL connection.");
+    log_debug(LOG_VERB, "Successfuly completed SSL connection.");
     return NC_OK;
 }
 
@@ -80,11 +85,10 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
     char *key_path = (char *)host_key_path->data;
     char *ca_path = (char *)ca_file_path->data;
 
-    log_debug(LOG_INFO, "connecting with cert: %s", cert_path);
-    log_debug(LOG_INFO, "connecting with key: %s", key_path);
-    log_debug(LOG_INFO, "connecting with ca file: %s", ca_path);
-
-    log_debug(LOG_DEBUG, "Using %s", SSLeay_version(SSLEAY_VERSION));
+    log_debug(LOG_VERB, "Using %s", SSLeay_version(SSLEAY_VERSION));
+    log_debug(LOG_VERB, "Connecting with cert: %s", cert_path);
+    log_debug(LOG_VERB, "Connecting with key: %s", key_path);
+    log_debug(LOG_VERB, "Connecting with ca file: %s", ca_path);
 
     SSL_CTX *ctx;
     SSL *ssl;
@@ -97,50 +101,51 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
     ctx = SSL_CTX_new(SSLv23_method());
 
     if (ctx == NULL) {
-        log_debug(LOG_INFO, "error creating context");
+        log_error("Error creating ssl context");
     }
 
     SSL_CTX_set_timeout(ctx, 5); // in seconds
 
     int use_cert = SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM);
     if (use_cert != 1) {
-        log_debug(LOG_INFO, "error loading cert %s", cert_path);
+        log_error("Error loading ssl cert %s", cert_path);
         return NC_ERROR;
     }
 
     int use_private_key = SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM);
     if (use_private_key != 1) {
-        log_debug(LOG_INFO, "error loading private key: %s", key_path);
+        log_error("Error loading ssl private key: %s", key_path);
         return NC_ERROR;
     }
 
     // TODO: can we specify separate locations for client verification and what is sent to the server (check with Brian on the specifics of this distinction)
     int use_ca = SSL_CTX_load_verify_locations(ctx, ca_path, NULL);
     if (use_ca != 1) {
-        log_debug(LOG_INFO, "error loading ca %s", ca_path);
+        log_error("Error loading ssl ca file: %s", ca_path);
         return NC_ERROR;
     }
 
     if (SSL_CTX_check_private_key(ctx) != 1) {
-        log_debug(LOG_INFO, "something is wrong with SSL_CTX_check_private_key");
+        log_error("Consistency error between private key and certificates. SSL error stack:");
+        log_ssl_error_stack();
         return NC_ERROR;
     }
 
     ssl = SSL_new(ctx);
 
     if (ssl == NULL) {
-        log_debug(LOG_INFO, "error creating ssl");
+        log_error("Error creating SSL structure. SSL error stack:");
+        log_ssl_error_stack();
         return NC_ERROR;
     }
 
-    log_debug(LOG_INFO, "setting fd: %d", conn->sd);
     SSL_set_fd(ssl, conn->sd);
 
     if (do_ssl_connect(ssl) != NC_OK) {
         return NC_ERROR;
     }
 
-    log_debug(LOG_INFO, "SSL is set up for conn %d.", conn->sd);
+    log_debug(LOG_VERB, "SSL is set up for s %d.", conn->sd);
 
     conn->ssl = ssl;
     return NC_OK;
@@ -238,7 +243,7 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
         else if (code == SSL_ERROR_ZERO_RETURN) {
             // This is the equivalent of read() returning 0, which happens when the socket is closed.
             // Return 0 to mimic that behavior.
-            returo 0;
+            return 0;
         }
         else {
             log_error("Failing SSL_read due to unhandled error.");
