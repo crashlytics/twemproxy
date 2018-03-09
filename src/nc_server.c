@@ -40,8 +40,6 @@ server_resolve(struct server *server, struct conn *conn)
     conn->family = server->info.family;
     conn->addrlen = server->info.addrlen;
     conn->addr = (struct sockaddr *)&server->info.addr;
-
-    // TODO: this is maybe where to pull out ssl cert paths?
 }
 
 void

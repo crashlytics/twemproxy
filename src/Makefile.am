@@ -8,7 +8,6 @@ AM_CPPFLAGS += -I $(top_srcdir)/src/hashkit
 AM_CPPFLAGS += -I $(top_srcdir)/src/proto
 AM_CPPFLAGS += -I $(top_srcdir)/src/event
 AM_CPPFLAGS += -I $(top_srcdir)/contrib/yaml-0.1.4/include
-# https://stackoverflow.com/questions/3368683/how-to-compile-c-file-with-openssl-includes
 AM_CPPFLAGS += -I /usr/local/ssl/include
 
 AM_CFLAGS =
@@ -64,7 +63,7 @@ nutcracker_LDADD += $(top_builddir)/src/proto/libproto.a
 nutcracker_LDADD += $(top_builddir)/src/event/libevent.a
 nutcracker_LDADD += $(top_builddir)/contrib/yaml-0.1.4/src/.libs/libyaml.a
 
-# Test config
+# Test binary
 nutcracker_test_SOURCES = \
 	nc_core.c nc_core.h		\
 	nc_connection.c nc_connection.h	\

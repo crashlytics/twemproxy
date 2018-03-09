@@ -97,6 +97,10 @@ test_copy_all_to_buffer__some_empty_vectors(void) {
 }
 
 
+/*
+This runs several unit tests. If a test fails, the program
+will exit nonzero and print a failure reason.
+*/
 int
 main(int argc, char **argv) {
 	test_copy_all_to_buffer__one_vector();
