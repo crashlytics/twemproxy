@@ -221,6 +221,7 @@ nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
 
     // FIXME: reconsider using this. it's allocated on the stack so could risk a stackoverflow.
     // It's not clear if SSL_write() does anything different with buf than write()
+    // This seems to be how writev is implemented (and that's what twemproxy uses for non-SSL).
     char *buf = alloca(total_bytes);
 
     copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
