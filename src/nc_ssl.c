@@ -7,7 +7,11 @@
 static void
 log_ssl_error_code(int error_code) {
     log_error("SSL failed with error code: %d", error_code);
-    ERR_print_errors_fp(stderr); // TODO: use log_*()
+
+    char buf[256];
+    ERR_error_string_n((unsigned long)error_code, buf, sizeof(buf));
+    log_error(buf);
+
     log_error("error: %s", ERR_error_string(ERR_get_error(), NULL));
     switch(error_code) {
         case SSL_ERROR_NONE: log_error("error string: SSL_ERROR_NONE"); break;
@@ -72,9 +76,9 @@ do_ssl_connect(SSL *ssl) {
 
 rstatus_t
 nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *host_key_path, struct string *ca_file_path) {
-    char *cert_path = host_cert_path->data;
-    char *key_path = host_key_path->data;
-    char *ca_path = ca_file_path->data;
+    char *cert_path = (char *)host_cert_path->data;
+    char *key_path = (char *)host_key_path->data;
+    char *ca_path = (char *)ca_file_path->data;
 
     log_debug(LOG_INFO, "connecting with cert: %s", cert_path);
     log_debug(LOG_INFO, "connecting with key: %s", key_path);
@@ -221,9 +225,9 @@ nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
 }
 
 ssize_t
-nc_ssl_read(SSL *ssl, void *buf, int num) {
+nc_ssl_read(SSL *ssl, void *buf, size_t num) {
     int bytes_read;
-    while ((bytes_read = SSL_read(ssl, buf, num)) <= 0) {
+    while ((bytes_read = SSL_read(ssl, buf, (int)num)) <= 0) {
         int code = SSL_get_error(ssl, bytes_read);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {

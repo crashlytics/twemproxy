@@ -401,7 +401,7 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
 
     for (;;) {
         if (conn->ssl != NULL) {
-            n = nc_ssl_writev(conn->ssl, sendv->elem, sendv->nelem);
+            n = nc_ssl_writev(conn->ssl, sendv->elem, (int)sendv->nelem);
         }
         else {
             n = nc_writev(conn->sd, sendv->elem, sendv->nelem);

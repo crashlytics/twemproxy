@@ -20,7 +20,7 @@ ssize_t nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt);
 // Matches the return behavior of writev():
 //  - On success, returns the number of bytes read.
 //  - On failure, returns -1 and sets errno.
-ssize_t nc_ssl_read(SSL *ssl, void *buf, int num);
+ssize_t nc_ssl_read(SSL *ssl, void *buf, size_t num);
 
 
 // Copy the contents of iovcnt vectors from iov into buf, in order.
