@@ -219,24 +219,28 @@ nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
         total_bytes += iov[i].iov_len;
     }
 
-    // FIXME: reconsider using this. it's allocated on the stack so could risk a stackoverflow.
-    // It's not clear if SSL_write() does anything different with buf than write()
-    // This seems to be how writev is implemented (and that's what twemproxy uses for non-SSL).
-    char *buf = alloca(total_bytes);
-
-    copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
-
     if (total_bytes == 0) {
         // Calling SSL_write with 0 bytes to send causes undefined behavior.
         // Since there's nothing to send, return success.
         return 0;
     }
 
+    char *buf = malloc(total_bytes);
+    if (buf == NULL) {
+        return -1;
+    }
+
+    copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
+
     // Must retry failed writes here since there's no guarantee that the caller of this
     // function will call it with the same arguments. However, it must since (from the man page):
     // When an SSL_write() operation has to be repeated because of SSL_ERROR_WANT_READ or
     // SSL_ERROR_WANT_WRITE, it must be repeated with the same arguments.
-    return do_ssl_write(ssl, buf, (int)total_bytes);
+    int ssl_write_status = do_ssl_write(ssl, buf, (int)total_bytes);
+
+    free(buf);
+
+    return ssl_write_status;
 }
 
 ssize_t
