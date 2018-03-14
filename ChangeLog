@@ -1,3 +1,7 @@
+ 2018-14-03 Stephen Panaro <spanaro@google.com>
+    * twemproxy: version 0.4.2 internal Google Fabric release
+      add support for TLS mutual auth
+
  2015-22-06  Manju Rajashekhar  <manj@cs.stanford.edu>
     * twemproxy: version 0.4.1 release
       backend server hostnames are resolved lazily
