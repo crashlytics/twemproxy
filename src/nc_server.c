@@ -344,6 +344,19 @@ server_close_stats(struct context *ctx, struct server *server, err_t err,
     }
 }
 
+static void
+server_teardown_ssl(struct conn *conn) {
+    if (conn->ssl == NULL) {
+        return;
+    }
+
+    if (nc_teardown_ssl(conn->ssl) != NC_OK) {
+        log_error("failed to teardown ssl s %d", conn->sd);
+    }
+
+    conn->ssl = NULL;
+}
+
 void
 server_close(struct context *ctx, struct conn *conn)
 {
@@ -456,13 +469,7 @@ server_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
-    if (conn->ssl) {
-        status = nc_teardown_ssl(conn->ssl);
-        if (status != NC_OK) {
-            log_error("failed to teardown ssl s %d", conn->sd);
-        }
-        conn->ssl = NULL;
-    }
+    server_teardown_ssl(conn);
 
     status = close(conn->sd);
     if (status < 0) {
