@@ -43,7 +43,7 @@ nutcracker_SOURCES =			\
 	nc_server.c nc_server.h		\
 	nc_proxy.c nc_proxy.h		\
 	nc_message.c nc_message.h	\
-	nc_ssl.c ssl_ssl.h 			\
+	nc_ssl.c ssl_ssl.h		\
 	nc_request.c			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\
@@ -71,7 +71,7 @@ nutcracker_test_SOURCES = \
 	nc_server.c nc_server.h		\
 	nc_proxy.c nc_proxy.h		\
 	nc_message.c nc_message.h	\
-	nc_ssl.c ssl_ssl.h 			\
+	nc_ssl.c ssl_ssl.h		\
 	nc_request.c			\
 	nc_response.c			\
 	nc_mbuf.c nc_mbuf.h		\
