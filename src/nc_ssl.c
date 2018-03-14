@@ -230,7 +230,7 @@ nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt) {
         return -1;
     }
 
-    copy_all_to_buffer(buf, total_bytes, iov, iovcnt);
+    copy_vectors_to_buffer(buf, total_bytes, iov, iovcnt);
 
     // Must retry failed writes here since there's no guarantee that the caller of this
     // function will call it with the same arguments. However, it must since (from the man page):
@@ -280,13 +280,14 @@ min(size_t a, size_t b) {
     return a;
 }
 
+
 void
-copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt) {
-    size_t remaining_bytes = buflen;
+copy_vectors_to_buffer(void* dest, size_t n, const struct iovec *iov, int iovcnt) {
+    size_t remaining_bytes = n;
     size_t to_copy_bytes;
-    char *copy_loc = buf; // tracks where to next copy
+    char *copy_loc = dest; // tracks where to next copy
     for (int i = 0; i < iovcnt; i++) {
-        // Guard against buffer overflow.
+        // Respect n limit
         to_copy_bytes = min(iov[i].iov_len, remaining_bytes);
 
         memcpy(copy_loc, iov[i].iov_base, to_copy_bytes);

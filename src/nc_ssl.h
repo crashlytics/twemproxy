@@ -23,8 +23,8 @@ ssize_t nc_ssl_writev(SSL *ssl, const struct iovec *iov, int iovcnt);
 ssize_t nc_ssl_read(SSL *ssl, void *buf, size_t num);
 
 
-// Copy the contents of iovcnt vectors from iov into buf, in order.
+// Copies no more than n bytes from the iovcnt buffers described by iov into dest.
 // Exposed for testing.
-void copy_all_to_buffer(char* buf, size_t buflen, const struct iovec *iov, int iovcnt);
+void copy_vectors_to_buffer(void* dest, size_t n, const struct iovec *iov, int iovcnt);
 
 #endif
