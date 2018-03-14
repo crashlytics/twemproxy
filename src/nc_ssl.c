@@ -103,6 +103,8 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
     SSL_CTX *ctx;
     SSL *ssl;
 
+    // SSLv23_method negotiates the highest protocol version mutually
+    // supported by both the client and the server.
     if ((ctx = SSL_CTX_new(SSLv23_method())) == NULL) {
         log_error("Error creating ssl context");
     }
@@ -149,6 +151,7 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
         return NC_ERROR;
     }
 
+    log_debug(LOG_VERB, "Negotiated SSL connection over %s for s %d", SSL_get_version(ssl), conn->sd);
     log_debug(LOG_VERB, "SSL is set up for s %d.", conn->sd);
 
     conn->ssl = ssl;
