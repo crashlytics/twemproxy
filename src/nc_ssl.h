@@ -4,6 +4,10 @@
 #include <nc_core.h>
 #include <sys/uio.h>
 
+// Initializes OpenSSL library and error strings.
+// Must be called before OpenSSL is used.
+void nc_ssl_init(void);
+
 // Configure SSL for a connection. Updates `conn->ssl` on success.
 rstatus_t nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *host_key_path, struct string *ca_file_path);
 // Shutdown the SSL connection and free `ssl`.

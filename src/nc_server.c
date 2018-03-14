@@ -583,9 +583,6 @@ server_connected(struct context *ctx, struct conn *conn)
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->connecting && !conn->connected);
 
-    // TODO: An argument could be made for doing this before this function is called, since
-    // data cannot be sent until SSL is setup. The complexity introduced by that may not be
-    // worth the price of waiting for an SSL handshake once per server connection.
     if (server_pool->require_ssl) {
         rstatus_t status = nc_setup_ssl(conn, &server_pool->ssl_host_cert, &server_pool->ssl_host_key, &server_pool->ssl_ca_file);
         if (status != NC_OK) {

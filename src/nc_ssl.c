@@ -4,6 +4,13 @@
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 
+void
+nc_ssl_init(void) {
+    SSL_library_init(); /* load encryption & hash algorithms for SSL */
+    ERR_load_crypto_strings();
+    SSL_load_error_strings(); /* load the error strings for good error reporting */
+}
+
 static void
 log_ssl_error_stack(void) {
     long unsigned int ssl_error_code;
@@ -95,11 +102,6 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
 
     SSL_CTX *ctx;
     SSL *ssl;
-
-    // FIXME: can these 3 functions be called multiple times?
-    SSL_library_init(); /* load encryption & hash algorithms for SSL */
-    ERR_load_crypto_strings();
-    SSL_load_error_strings(); /* load the error strings for good error reporting */
 
     if ((ctx = SSL_CTX_new(SSLv23_method())) == NULL) {
         log_error("Error creating ssl context");
