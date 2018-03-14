@@ -345,12 +345,9 @@ conn_recv(struct conn *conn, void *buf, size_t size)
     ASSERT(conn->recv_ready);
 
     for (;;) {
-        if (conn->ssl != NULL) {
-            n = nc_ssl_read(conn->ssl, buf, size);
-        }
-        else {
-            n = nc_read(conn->sd, buf, size);
-        }
+        n = conn->ssl
+            ? nc_ssl_read(conn->ssl, buf, size)
+            : nc_read(conn->sd, buf, size);
 
         log_debug(LOG_VERB, "recv on sd %d %zd of %zu", conn->sd, n, size);
 
@@ -400,12 +397,9 @@ conn_sendv(struct conn *conn, struct array *sendv, size_t nsend)
     ASSERT(conn->send_ready);
 
     for (;;) {
-        if (conn->ssl != NULL) {
-            n = nc_ssl_writev(conn->ssl, sendv->elem, (int)sendv->nelem);
-        }
-        else {
-            n = nc_writev(conn->sd, sendv->elem, sendv->nelem);
-        }
+        n = conn->ssl
+            ? nc_ssl_writev(conn->ssl, sendv->elem, (int)sendv->nelem)
+            : nc_writev(conn->sd, sendv->elem, sendv->nelem);
 
         log_debug(LOG_VERB, "sendv on sd %d %zd of %zu in %"PRIu32" buffers",
                   conn->sd, n, nsend, sendv->nelem);
