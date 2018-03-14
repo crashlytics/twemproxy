@@ -36,6 +36,11 @@ core*
 nutcracker
 nutcracker_test
 
+# local credentials
+keys/*
+!keys/twemproxy-host*
+!keys/cafile.crt.pem
+
 # extracted yaml
 !/contrib/yaml-0.1.4.tar.gz
 
