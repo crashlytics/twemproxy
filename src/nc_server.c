@@ -21,6 +21,9 @@
 #include <nc_core.h>
 #include <nc_server.h>
 #include <nc_conf.h>
+#include <nc_ssl.h>
+
+#include <sys/time.h>
 
 static void
 server_resolve(struct server *server, struct conn *conn)
@@ -341,6 +344,19 @@ server_close_stats(struct context *ctx, struct server *server, err_t err,
     }
 }
 
+static void
+server_teardown_ssl(struct conn *conn) {
+    if (conn->ssl == NULL) {
+        return;
+    }
+
+    if (nc_teardown_ssl(conn->ssl) != NC_OK) {
+        log_error("failed to teardown ssl s %d", conn->sd);
+    }
+
+    conn->ssl = NULL;
+}
+
 void
 server_close(struct context *ctx, struct conn *conn)
 {
@@ -453,6 +469,8 @@ server_close(struct context *ctx, struct conn *conn)
 
     conn->unref(conn);
 
+    server_teardown_ssl(conn);
+
     status = close(conn->sd);
     if (status < 0) {
         log_error("close s %d failed, ignored: %s", conn->sd, strerror(errno));
@@ -534,6 +552,17 @@ server_connect(struct context *ctx, struct server *server, struct conn *conn)
     }
 
     ASSERT(!conn->connecting);
+
+    struct server_pool *server_pool = server->owner;
+    if (server_pool->require_ssl) {
+        status = nc_setup_ssl(conn, &server_pool->ssl_host_cert, &server_pool->ssl_host_key, &server_pool->ssl_ca_file);
+        if (status != NC_OK) {
+            log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+                server->pname.len, server->pname.data);
+            goto error;
+        }
+    }
+
     conn->connected = 1;
     log_debug(LOG_INFO, "connected on s %d to server '%.*s'", conn->sd,
               server->pname.len, server->pname.data);
@@ -549,9 +578,18 @@ void
 server_connected(struct context *ctx, struct conn *conn)
 {
     struct server *server = conn->owner;
+    struct server_pool *server_pool = server->owner;
 
     ASSERT(!conn->client && !conn->proxy);
     ASSERT(conn->connecting && !conn->connected);
+
+    if (server_pool->require_ssl) {
+        rstatus_t status = nc_setup_ssl(conn, &server_pool->ssl_host_cert, &server_pool->ssl_host_key, &server_pool->ssl_ca_file);
+        if (status != NC_OK) {
+            log_error("failed to setup ssl on s %d to server '%.*s'", conn->sd,
+                server->pname.len, server->pname.data);
+        }
+    }
 
     stats_server_incr(ctx, server, server_connections);
 

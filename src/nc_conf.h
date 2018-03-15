@@ -93,6 +93,9 @@ struct conf_pool {
     int                server_connections;    /* server_connections: */
     int                server_retry_timeout;  /* server_retry_timeout: in msec */
     int                server_failure_limit;  /* server_failure_limit: */
+    struct string      ssl_host_cert;         /* ssl_host_cert: */
+    struct string      ssl_host_key;          /* ssl_host_key: */
+    struct string      ssl_ca_file;           /* ssl_ca_file: */
     struct array       server;                /* servers: conf_server[] */
     unsigned           valid:1;               /* valid? */
 };

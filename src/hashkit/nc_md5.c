@@ -193,8 +193,9 @@ body(MD5_CTX *ctx, void *data, unsigned long size)
     return ptr;
 }
 
+// Prefixed to not clash with libcrypto's function.
 void
-MD5_Init(MD5_CTX *ctx)
+nc_MD5_Init(MD5_CTX *ctx)
 {
     ctx->a = 0x67452301;
     ctx->b = 0xefcdab89;
@@ -205,8 +206,9 @@ MD5_Init(MD5_CTX *ctx)
     ctx->hi = 0;
 }
 
+// Prefixed to not clash with libcrypto's function.
 void
-MD5_Update(MD5_CTX *ctx, void *data, unsigned long size)
+nc_MD5_Update(MD5_CTX *ctx, void *data, unsigned long size)
 {
     MD5_u32plus saved_lo;
     unsigned long used, free;
@@ -241,8 +243,9 @@ MD5_Update(MD5_CTX *ctx, void *data, unsigned long size)
     memcpy(ctx->buffer, data, size);
 }
 
+// Prefixed to not clash with libcrypto's function.
 void
-MD5_Final(unsigned char *result, MD5_CTX *ctx)
+nc_MD5_Final(unsigned char *result, MD5_CTX *ctx)
 {
     unsigned long used, free;
 
@@ -302,9 +305,9 @@ md5_signature(unsigned char *key, unsigned long length, unsigned char *result)
 {
     MD5_CTX my_md5;
 
-    MD5_Init(&my_md5);
-    (void)MD5_Update(&my_md5, key, length);
-    MD5_Final(result, &my_md5);
+    nc_MD5_Init(&my_md5);
+    (void)nc_MD5_Update(&my_md5, key, length);
+    nc_MD5_Final(result, &my_md5);
 }
 
 uint32_t

@@ -21,6 +21,7 @@
 #include <nc_conf.h>
 #include <nc_server.h>
 #include <nc_proxy.h>
+#include <nc_ssl.h>
 
 static uint32_t ctx_id; /* context generation */
 
@@ -163,6 +164,7 @@ core_start(struct instance *nci)
     mbuf_init(nci);
     msg_init();
     conn_init();
+    nc_ssl_init();
 
     ctx = core_ctx_create(nci);
     if (ctx != NULL) {
