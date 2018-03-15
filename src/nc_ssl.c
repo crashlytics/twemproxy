@@ -111,19 +111,22 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
 
     SSL_CTX_set_timeout(ctx, 5); // in seconds
 
-    if (SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM) != 1) {
+    // Load the subject (client or server) certificate and any intermediate CA certificates, if applicable.
+    if (SSL_CTX_use_certificate_chain_file(ctx, cert_path) != 1) {
         log_error("Error loading ssl cert %s", cert_path);
+        log_ssl_error_stack();
         return NC_ERROR;
     }
 
     if (SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM) != 1) {
         log_error("Error loading ssl private key: %s", key_path);
+        log_ssl_error_stack();
         return NC_ERROR;
     }
 
-    // TODO: can we specify separate locations for client verification and what is sent to the server (check with Brian on the specifics of this distinction)
     if (SSL_CTX_load_verify_locations(ctx, ca_path, NULL) != 1) {
         log_error("Error loading ssl ca file: %s", ca_path);
+        log_ssl_error_stack();
         return NC_ERROR;
     }
 
