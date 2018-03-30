@@ -20,7 +20,7 @@ log_ssl_error_stack(void) {
 }
 
 static void
-log_ssl_error_code(int error_code) {
+log_ssl_error_code(int error_code, int ssl_routine_errno) {
     log_error("SSL failed with error code: %d", error_code);
 
     char buf[256];
@@ -36,7 +36,7 @@ log_ssl_error_code(int error_code) {
         case SSL_ERROR_WANT_CONNECT: log_error("error string: SSL_ERROR_WANT_CONNECT"); break;
         case SSL_ERROR_WANT_ACCEPT: log_error("error string: SSL_ERROR_WANT_ACCEPT"); break;
         case SSL_ERROR_WANT_X509_LOOKUP: log_error("error string: SSL_ERROR_WANT_X509_LOOKUP"); break;
-        case SSL_ERROR_SYSCALL: log_error("error string: SSL_ERROR_SYSCALL"); break;
+        case SSL_ERROR_SYSCALL: log_error("error string: SSL_ERROR_SYSCALL, errno: %s", strerror(ssl_routine_errno)); break;
         case SSL_ERROR_SSL: log_error("error string: SSL_ERROR_SSL"); break;
     }
 
@@ -68,6 +68,7 @@ static rstatus_t
 do_ssl_connect(SSL *ssl) {
     int connect_status;
     while ((connect_status = SSL_connect(ssl)) != 1) {
+        int connect_errno = errno;
         int code = SSL_get_error(ssl, connect_status);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
@@ -80,7 +81,7 @@ do_ssl_connect(SSL *ssl) {
         }
         else {
             log_error("Failing SSL_connect due to unhandled error.");
-            log_ssl_error_code(code);
+            log_ssl_error_code(code, connect_errno);
             return NC_ERROR;
         }
     }
@@ -172,6 +173,7 @@ nc_teardown_ssl(SSL *ssl) {
             continue;
         }
 
+        int teardown_errno = errno;
         int code = SSL_get_error(ssl, ssl_shutdown_result);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
@@ -185,6 +187,7 @@ nc_teardown_ssl(SSL *ssl) {
         }
         else {
             log_error("Failing SSL_shutdown due to unhandled error.");
+            log_ssl_error_code(code, teardown_errno);
             teardown_status = NC_ERROR;
             break;
         }
@@ -192,6 +195,10 @@ nc_teardown_ssl(SSL *ssl) {
 
     SSL_CTX_free(SSL_get_SSL_CTX(ssl));
     SSL_free(ssl);
+
+    if (teardown_status == NC_OK) {
+        log_debug(LOG_VERB, "Successfuly shutdown SSL connection.");
+    }
 
     return teardown_status;
 }
@@ -203,6 +210,7 @@ static int
 do_ssl_write(SSL *ssl, char * buf, int buflen) {
     int bytes_written;
     while ((bytes_written = SSL_write(ssl, buf, buflen)) <= 0) {
+        int write_errno = errno;
         int code = SSL_get_error(ssl, bytes_written);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
@@ -215,7 +223,7 @@ do_ssl_write(SSL *ssl, char * buf, int buflen) {
         }
         else {
             log_error("Failing SSL_write due to unhandled error.");
-            log_ssl_error_code(code);
+            log_ssl_error_code(code, write_errno);
             return -1;
         }
     }
@@ -258,6 +266,7 @@ ssize_t
 nc_ssl_read(SSL *ssl, void *buf, size_t num) {
     int bytes_read;
     while ((bytes_read = SSL_read(ssl, buf, (int)num)) <= 0) {
+        int read_errno = errno;
         int code = SSL_get_error(ssl, bytes_read);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
@@ -276,7 +285,7 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
         }
         else {
             log_error("Failing SSL_read due to unhandled error.");
-            log_ssl_error_code(code);
+            log_ssl_error_code(code, read_errno);
             return -1;
         }
     }
