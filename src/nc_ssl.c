@@ -36,7 +36,7 @@ log_ssl_error_code(int error_code, int ssl_routine_errno) {
         case SSL_ERROR_WANT_CONNECT: log_error("error string: SSL_ERROR_WANT_CONNECT"); break;
         case SSL_ERROR_WANT_ACCEPT: log_error("error string: SSL_ERROR_WANT_ACCEPT"); break;
         case SSL_ERROR_WANT_X509_LOOKUP: log_error("error string: SSL_ERROR_WANT_X509_LOOKUP"); break;
-        case SSL_ERROR_SYSCALL: log_error("error string: SSL_ERROR_SYSCALL, errno: %s", strerror(ssl_routine_errno)); break;
+        case SSL_ERROR_SYSCALL: log_error("error string: SSL_ERROR_SYSCALL, errno: %d (%s)", ssl_routine_errno, strerror(ssl_routine_errno)); break;
         case SSL_ERROR_SSL: log_error("error string: SSL_ERROR_SSL"); break;
     }
 
