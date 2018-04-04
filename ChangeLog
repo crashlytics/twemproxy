@@ -1,3 +1,8 @@
+ 2018-04-04 Stephen Panar <spanaro@google.com>
+    * twemproxy: version 0.4.3 internal Google Fabric release
+      fix memory leak when there are unhandled errors during shutdown
+      improve logging for SSL_ERROR_SYSCALL
+
  2018-14-03 Stephen Panaro <spanaro@google.com>
     * twemproxy: version 0.4.2 internal Google Fabric release
       add support for TLS mutual auth
