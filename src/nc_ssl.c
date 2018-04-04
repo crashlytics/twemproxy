@@ -163,34 +163,37 @@ nc_setup_ssl(struct conn *conn, struct string *host_cert_path, struct string *ho
 
 rstatus_t
 nc_teardown_ssl(SSL *ssl) {
-    int shutdown_status;
-    while ((shutdown_status = SSL_shutdown(ssl)) <= 0) {
-        if (shutdown_status == 0) {
-            // 0 means shutdown is not yet finished and that the function should be called again.
+    rstatus_t teardown_status = NC_OK;
+
+    int ssl_shutdown_result;
+    while ((ssl_shutdown_result = SSL_shutdown(ssl)) <= 0) {
+        if (ssl_shutdown_result == 0) {
+            // 0 means SSL shutdown is not yet finished and that the function should be called again.
             continue;
         }
 
-        int code = SSL_get_error(ssl, shutdown_status);
+        int code = SSL_get_error(ssl, ssl_shutdown_result);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
             // This means that the socket needs to do a read or write first.
             // Since the socket is nonblocking, we can just wait until it is done, per the man page.
             if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
                 log_error("Failing SSL_shutdown due to error waiting for read or write.");
-                return NC_ERROR;
+                teardown_status = NC_ERROR;
+                break;
             }
         }
         else {
             log_error("Failing SSL_shutdown due to unhandled error.");
-            log_ssl_error_code(code);
-            return NC_ERROR;
+            teardown_status = NC_ERROR;
+            break;
         }
     }
 
     SSL_CTX_free(SSL_get_SSL_CTX(ssl));
     SSL_free(ssl);
 
-    return NC_OK;
+    return teardown_status;
 }
 
 // Retry SSL_write if it encounters a SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE error.
