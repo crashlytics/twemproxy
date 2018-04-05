@@ -290,6 +290,51 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
         }
     }
 
+    log_debug(LOG_VERB, "read %d initial bytes", bytes_read);
+
+    // OpenSSL reads data in record size blocks (16kb for SSLv3/TLSv1, see
+    // SSL_read man page for details). Sometimes, SSL_read returns data but
+    // there is still more data available from the next block. Keep reading
+    // until there is actually no more data.
+    //
+    // Don't use SSL_pending since it does not reliably work.
+    ssize_t bytes_remaining = (ssize_t)num - bytes_read;
+    while (bytes_remaining > 0) {
+        void *next_buf = (char*)buf + bytes_read;
+        int ssl_read_status = SSL_read(ssl, next_buf, (int)bytes_remaining);
+
+        // Ignore failures here since we know there might be no pending data,
+        // but log them for visibility.
+        if (ssl_read_status <= 0) {
+            int read_errno = errno;
+            int code = SSL_get_error(ssl, ssl_read_status);
+
+            if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
+                // This means that the socket needs to do a read or write first.
+                // Since the socket is nonblocking, we can just wait until it is done, per the man page.
+                if (NC_OK != block_until_read_or_write(SSL_get_fd(ssl), 2)) {
+                    log_error("Failing extra SSL_read due to error waiting for read or write.");
+                    return NC_ERROR;
+                }
+
+            }
+            else if (code == SSL_ERROR_SYSCALL && read_errno == 0) {
+                // This is an oddity of OpenSSL. There wasn't actually an error.
+                log_debug(LOG_VERB, "Ignoring SSL_ERROR_SYSCALL with errno 0 in extra SSL_read.");
+            }
+            else {
+                log_error("Unhandled error while doing extra SSL_read. Ignoring.");
+                log_ssl_error_code(code, read_errno);
+            }
+
+            break;
+        }
+
+        log_debug(LOG_VERB, "read %d extra bytes", ssl_read_status);
+        bytes_read += ssl_read_status;
+        bytes_remaining = (ssize_t)num - bytes_read;
+    }
+
     return bytes_read;
 }
 
