@@ -1,6 +1,6 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.4.3
+Version: 0.4.4
 Release: 1
 
 URL: https://github.com/twitter/twemproxy/
@@ -66,6 +66,9 @@ fi
 %config(noreplace)%{_sysconfdir}/%{name}/%{name}.yml
 
 %changelog
+* Wed Apr 5 2018  Stephen Panaro  <spanaro@google.com>
+- twemproxy: version 0.4.4 internal Google Fabric release
+- stop blocking the process when server responses span multiple SSL records
 * Wed Apr 4 2018  Stephen Panaro  <spanaro@google.com>
 - twemproxy: version 0.4.3 internal Google Fabric release
 - fix memory leak when there are unhandled errors during shutdown
@@ -116,7 +119,7 @@ fi
 - support for set ex/px/nx/xx for redis 2.6.12 and up (ypocat)
 - kqueue (bsd) support (ferenyx)
 - fix parsing redis response to accept integer reply (charsyam)
-      
+
 * Tue Jul 30 2013 Tait Clarridge <tait@clarridge.ca>
 - Rebuild SPEC to work with CentOS
 - Added buildrequires if building with mock/koji

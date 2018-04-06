@@ -1,3 +1,7 @@
+ 2018-04-05 Stephen Panar <spanaro@google.com>
+    * twemproxy: version 0.4.4 internal Google Fabric release
+      stop blocking the process when server responses span multiple SSL records
+
  2018-04-04 Stephen Panar <spanaro@google.com>
     * twemproxy: version 0.4.3 internal Google Fabric release
       fix memory leak when there are unhandled errors during shutdown
