@@ -1,8 +1,12 @@
- 2018-04-05 Stephen Panar <spanaro@google.com>
+ 2018-04-06 Brian Hatfield <bhatfield@google.com>
+    * twemproxy: version 0.4.5 internal Google Fabric release
+      fall back to epoll when no data is available on initial SSL_read
+
+ 2018-04-05 Stephen Panaro <spanaro@google.com>
     * twemproxy: version 0.4.4 internal Google Fabric release
       stop blocking the process when server responses span multiple SSL records
 
- 2018-04-04 Stephen Panar <spanaro@google.com>
+ 2018-04-04 Stephen Panaro <spanaro@google.com>
     * twemproxy: version 0.4.3 internal Google Fabric release
       fix memory leak when there are unhandled errors during shutdown
       improve logging for SSL_ERROR_SYSCALL

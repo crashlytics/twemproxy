@@ -266,7 +266,8 @@ ssize_t
 nc_ssl_read(SSL *ssl, void *buf, size_t num) {
     int bytes_read;
     while ((bytes_read = SSL_read(ssl, buf, (int)num)) <= 0) {
-        int read_errno = errno;
+        log_debug(LOG_VERB, "nc_ssl_read regular bytes loop start with bytes_read %d", bytes_read);
+
         int code = SSL_get_error(ssl, bytes_read);
 
         if (code == SSL_ERROR_WANT_READ || code == SSL_ERROR_WANT_WRITE) {
@@ -277,6 +278,13 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
                 return NC_ERROR;
             }
 
+            if (code == SSL_ERROR_WANT_READ) {
+                // Normally we would want to wait in this loop until the WANT_READ is available.
+                // However, this blocks the whole process. By returning -1 and leaving errno unread,
+                // we allow the read to go back to epoll instead.
+                log_debug(LOG_VERB, "nc_ssl_read code SSL_ERROR_WANT_READ, returning -1");
+                return -1;
+            }
         }
         else if (code == SSL_ERROR_ZERO_RETURN) {
             // This is the equivalent of read() returning 0, which happens when the socket is closed.
@@ -285,7 +293,7 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
         }
         else {
             log_error("Failing SSL_read due to unhandled error.");
-            log_ssl_error_code(code, read_errno);
+            log_ssl_error_code(code, errno);
             return -1;
         }
     }
@@ -316,7 +324,6 @@ nc_ssl_read(SSL *ssl, void *buf, size_t num) {
                     log_error("Failing extra SSL_read due to error waiting for read or write.");
                     return NC_ERROR;
                 }
-
             }
             else if (code == SSL_ERROR_SYSCALL && read_errno == 0) {
                 // This is an oddity of OpenSSL. There wasn't actually an error.
