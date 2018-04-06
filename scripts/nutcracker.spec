@@ -1,6 +1,6 @@
 Summary: Twitter's nutcracker redis and memcached proxy
 Name: nutcracker
-Version: 0.4.4
+Version: 0.4.5
 Release: 1
 
 URL: https://github.com/twitter/twemproxy/
