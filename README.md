@@ -32,6 +32,15 @@ A quick checklist:
 + Use CFLAGS="-O3 -fno-strict-aliasing" ./configure && make
 + `autoreconf -fvi && ./configure` needs `automake` and `libtool` to be installed
 
+## Packaging
+
+The Canonical packages are maintained by the community at [launchpad](https://code.launchpad.net/~twemproxy/twemproxy/debian). To build Fabric's custom SSL package, we have made use of their packaging scripts. The general steps are:
+
+1. Checkout the twemproxy repo
+1. Checkout the build scripts into the base twemproxy directory (`bzr branch lp:~twemproxy/twemproxy/debian`)
+1. Update `debian/changelog` as appropriate
+1. `dpkg-buildpackage -b -us -uc`
+
 ## Features
 
 + Fast.
