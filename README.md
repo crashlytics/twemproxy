@@ -39,6 +39,7 @@ The Canonical packages are maintained by the community at [launchpad](https://co
 1. Checkout the twemproxy repo
 1. Checkout the build scripts into the base twemproxy directory (`bzr branch lp:~twemproxy/twemproxy/debian`)
 1. Update `debian/changelog` as appropriate
+1. `sudo apt-get install dh-autoreconf libssl-dev`
 1. `dpkg-buildpackage -b -us -uc`
 
 ## Features
